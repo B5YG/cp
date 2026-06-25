@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>测评排行榜｜修复分数校验</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui, -apple-system, sans-serif}
+body{max-width:1600px;margin:0 auto;padding:24px;background:#f0f4f9;color:#222;overflow-x:hidden}
+.main-title{font-size:20px;font-weight:600;color:#1f2937}
+.top-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:16px;
+  flex-wrap:wrap;
+}
+.top-left{
+  display:flex;
+  align-items:center;
+  gap:16px;
+}
+.top-right{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.card{background:#ffffff;border-radius:14px;padding:22px;margin-bottom:22px;box-shadow:0 4px 16px rgba(0,0,0,0.06)}
+/* Tab页签 */
+.tab-wrap{margin-bottom:16px;display:flex;border-bottom:1px solid #ddd}
+.tab-item{
+  padding:10px 24px;
+  cursor:pointer;
+  font-size:15px;
+  color:#666;
+  border-bottom:3px solid transparent;
+  transition:0.2s
+}
+.tab-item.active{
+  color:#2563eb;
+  border-bottom-color:#2563eb;
+  font-weight:500
+}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.filter-wrap{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;margin-bottom:12px}
+.filter-group{display:flex;gap:8px;align-items:center}
+.count-text{margin-left:10px;color:#666;font-size:14px;font-weight:normal;}
+/* 抽屉表单两列布局 */
+.drawer-form{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-bottom:20px;
+}
+.drawer-full{
+  grid-column:1 / -1;
+}
+/* 三列同行容器（榜单弹窗专用） */
+.row-three{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:12px;
+}
+/* 正常两列分行（新增弹窗） */
+.score-normal{display:flex;flex-direction:column;gap:4px;}
+/* 切换类控制显隐 */
+.mode-normal .row-three { display: none; }
+.mode-three .score-normal { display: none; }
+
+.input-wrap{display:flex;flex-direction:column;gap:4px}
+.input-title{font-weight:500;color:#374151;font-size:14px}
+input[type="text"],input[type="number"]{
+  padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;width:100%;transition:0.2s
+}
+input.readonly-lock, select.disabled-lock{
+  background:#f3f4f6;
+  cursor:not-allowed;
+  color:#666;
+}
+input:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.15)}
+textarea{
+  padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;width:100%;resize:none;height:60px;transition:0.2s
+}
+textarea:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.15)}
+select{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;width:100%;background:#fff;transition:0.2s}
+select:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.15)}
+.btn{padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;transition:all 0.2s ease;white-space:nowrap}
+.btn-blue{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}
+.btn-blue:hover{background:linear-gradient(135deg,#2563eb,#1d4ed8)}
+.btn-red{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+.btn-red:hover{background:linear-gradient(135deg,#dc2626,#b91c1c)}
+.btn-orange{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff}
+.btn-orange:hover{background:linear-gradient(135deg,#ea580c,#c2410c)}
+/* 主汇总榜单表格 */
+table.main-table{width:100%;border-collapse:separate;border-spacing:0;margin-top:12px;border-radius:10px;overflow:hidden}
+th,td{border:none;padding:10px 6px;text-align:center;font-size:13px;border-bottom:1px solid #f3f4f6}
+th{background:#eff6ff;color:#1d4ed8;font-weight:600}
+tbody tr:nth-child(even){background:#f9fafb}
+tbody tr:hover{background:#e0eaff;cursor:pointer;}
+/* 抽屉底部明细表格 */
+.detail-table{width:100%;border-collapse:separate;margin-top:10px;font-size:12px}
+.detail-table th{background:#f1f5f9}
+.detail-table tr:hover{background:#e0eaff;cursor:pointer}
+.tip{color:#6b7280;font-size:13px;margin-top:8px;line-height:1.5}
+.file-input{display:none}
+.label-btn{background:#6b7280;color:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;transition:0.2s;white-space:nowrap}
+.label-btn:hover{background:#4b5563}
+.hide{display:none !important}
+.required{color:#ef4444;}
+.edit-tip{color:#2563eb;font-size:13px;}
+.id-count-tip{
+  color:#099250;
+  font-size:14px;
+  margin-bottom:16px;
+  padding:8px 10px;
+  background:#f0fdf4;
+  border-radius:8px;
+}
+.drawer-divider{
+  height:1px;
+  background:#ddd;
+  margin:20px 0;
+}
+.drawer-subtitle{
+  font-size:15px;
+  font-weight:500;
+  color:#333;
+  margin-bottom:10px;
+}
+/* 右侧抽屉基础 */
+.drawer-mask{
+  position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);z-index:998;
+  opacity:0;visibility:hidden;transition:opacity 0.3s,visibility 0.3s;
+}
+.drawer-mask.open{opacity:1;visibility:visible}
+.drawer-wrap{
+  position:fixed;top:0;right:0;height:100vh;display:flex;z-index:999;
+  transform:translateX(100%);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.drawer-wrap.open{transform:translateX(0)}
+.drawer-panel{
+  height:100vh;background:#fff;padding:20px;overflow-y:auto;
+}
+/* 拖拽分割条 */
+.drawer-resizer{
+  width:6px;height:100vh;background:#e5e7eb;cursor:ew-resize;flex-shrink:0;
+  transition:background 0.2s;
+}
+.drawer-resizer:hover{background:#2563eb}
+.drawer-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.drawer-close{border:none;background:transparent;font-size:22px;cursor:pointer;color:#666}
+.drawer-close:hover{color:#000}
+.drawer-btn-group{
+  display:flex;
+  gap:12px;
+  margin-top:16px;
+  grid-column:1 / -1;
+  justify-content:flex-end;
+}
+/* 轻提示 */
+.toast-success{
+  position:fixed;
+  top:24px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#22c55e;
+  color:#fff;
+  padding:10px 20px;
+  border-radius:8px;
+  z-index:99999;
+  opacity:0;
+  transition:opacity 0.3s;
+  pointer-events:none;
+}
+.toast-success.show{opacity:1}
+</style>
+</head>
+<body>
+<!-- 顶部：新增按钮 -->
+<div class="top-bar">
+  <div class="top-left">
+    <h2 class="main-title">测评均值排行榜</h2>
+    <button class="btn btn-blue" onclick="openEmptyDrawer()">新增测评条目</button>
+  </div>
+  <div class="top-right">
+    <input type="file" id="fileUpload" accept=".txt" class="file-input">
+    <label class="label-btn" for="fileUpload">导入本地TXT文件</label>
+    <button class="btn btn-orange" onclick="exportTXT()">导出TXT备份</button>
+  </div>
+</div>
+
+<div class="tip">说明：；点击榜单行打开弹窗隐藏ID/名称/状态/型号/价格；侧边弹窗左侧竖条可左右拖拽拉伸宽度，榜单新增同ID自动校验分数±20%区间</div>
+
+<div class="card">
+  <div class="tab-wrap">
+    <div class="tab-item active" data-tab="unfinish" onclick="switchTab('unfinish')">未完成均值榜单</div>
+    <div class="tab-item" data-tab="finish" onclick="switchTab('finish')">已完成均值榜单</div>
+  </div>
+
+  <!-- 未完成汇总榜单 -->
+  <div class="tab-content active" id="tabUnfinish">
+    <div class="filter-wrap">
+      <h3>按ID平均总分从高到低<span class="count-text" id="unfinishCount">(共0个ID)</span></h3>
+      <div class="filter-group">
+        <select id="filterUnfinishModel">
+          <option value="">全部型号</option>
+          <option value="A">型号A</option>
+          <option value="B">型号B</option>
+          <option value="C">型号C</option>
+          <option value="D">型号D</option>
+          <option value="E">型号E</option>
+        </select>
+      </div>
+    </div>
+    <table class="main-table" id="tableUnfinish">
+      <thead id="headUnfinish"></thead>
+      <tbody id="bodyUnfinish"></tbody>
+    </table>
+  </div>
+
+  <!-- 已完成汇总榜单 -->
+  <div class="tab-content" id="tabFinish">
+    <div class="filter-wrap">
+      <h3>按ID平均总分从高到低<span class="count-text" id="finishCount">(共0个ID)</span></h3>
+      <div class="filter-group">
+        <select id="filterFinishModel">
+          <option value="">全部型号</option>
+          <option value="A">型号A</option>
+          <option value="B">型号B</option>
+          <option value="C">型号C</option>
+          <option value="D">型号D</option>
+          <option value="E">型号E</option>
+        </select>
+      </div>
+    </div>
+    <table class="main-table" id="tableFinish">
+      <thead id="headFinish"></thead>
+      <tbody id="bodyFinish"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="toastSuccess" class="toast-success">保存成功</div>
+
+<!-- 右侧抽屉遮罩 -->
+<div id="drawerMask" class="drawer-mask" onclick="closeDrawer()"></div>
+<!-- 可拉伸弹窗外层容器 -->
+<div id="drawerWrap" class="drawer-wrap">
+  <!-- 拖拽条 -->
+  <div id="resizer" class="drawer-resizer"></div>
+  <!-- 录入面板 -->
+  <div id="drawerPanel" class="drawer-panel">
+    <div class="drawer-head">
+      <h3>测评录入编辑 <span class="edit-tip">侧边竖条拖拽缩放宽度</span></h3>
+      <span class="drawer-close" onclick="closeDrawer()">×</span>
+    </div>
+    <div id="idCountTip" class="id-count-tip" style="display:none;"></div>
+    <input type="hidden" id="editUid">
+    <input type="hidden" id="currentEditId">
+    <!-- 录入区域 -->
+    <div class="drawer-form mode-normal">
+      <div class="input-wrap" id="row-id">
+        <span class="input-title">ID<span class="required">*</span></span>
+        <input id="itemId" type="text" placeholder="请输入ID">
+      </div>
+      <div class="input-wrap" id="row-name">
+        <span class="input-title">名称<span class="required">*</span></span>
+        <input id="itemName" type="text" placeholder="请输入名称">
+      </div>
+      <div class="input-wrap" id="row-status">
+        <span class="input-title">完成状态</span>
+        <select id="statusSel">
+          <option value="unfinish">未完成</option>
+          <option value="finish">已完成</option>
+        </select>
+      </div>
+      <div class="input-wrap" id="row-model">
+        <span class="input-title">型号<span class="required">*</span></span>
+        <select id="modelSel">
+          <option value="">请选择型号</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+          <option value="E">E</option>
+        </select>
+      </div>
+      <div class="input-wrap" id="row-price">
+        <span class="input-title">价格(3~6)<span class="required">*</span></span>
+        <input id="priceInput" type="number" min="3" max="6" value="3">
+      </div>
+
+      <!-- 新增弹窗 两列分行 独立ID -->
+      <div class="score-normal">
+        <span class="input-title">颜值（均值±20%）</span>
+        <input id="scoreAppNormal" class="score-input" type="number" value="3">
+      </div>
+      <div class="score-normal">
+        <span class="input-title">特色（均值±20%）</span>
+        <input id="scoreFeaNormal" class="score-input" type="number" value="3">
+      </div>
+      <div class="score-normal">
+        <span class="input-title">服务（均值±20%）</span>
+        <input id="scoreSerNormal" class="score-input" type="number" value="3">
+      </div>
+
+      <!-- 榜单弹窗 三列同行 独立ID -->
+      <div class="row-three">
+        <div class="input-wrap">
+          <span class="input-title">颜值（均值±20%）</span>
+          <input id="scoreAppThree" class="score-input" type="number" value="3">
+        </div>
+        <div class="input-wrap">
+          <span class="input-title">特色（均值±20%）</span>
+          <input id="scoreFeaThree" class="score-input" type="number" value="3">
+        </div>
+        <div class="input-wrap">
+          <span class="input-title">服务（均值±20%）</span>
+          <input id="scoreSerThree" class="score-input" type="number" value="3">
+        </div>
+      </div>
+
+      <div class="input-wrap drawer-full">
+        <span class="input-title">备注<span class="required">*</span></span>
+        <textarea id="noteText" placeholder="文字备注，不能为空"></textarea>
+      </div>
+      <div class="drawer-btn-group">
+        <button class="btn btn-blue" onclick="saveItem()">保存本条记录</button>
+        <button class="btn btn-red" onclick="clearForm()">清空表单</button>
+      </div>
+    </div>
+    <!-- 分隔线+明细列表 -->
+    <div class="drawer-divider"></div>
+    <div class="drawer-subtitle">该ID全部测评明细（点击行修改）</div>
+    <div id="detailWrap"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "FoodRankData";
+let appData = { list: [] };
+let filterUnfinishModel = "";
+let filterFinishModel = "";
+let activeTab = "unfinish";
+const drawerMask = document.getElementById("drawerMask");
+const drawerWrap = document.getElementById("drawerWrap");
+const drawerPanel = document.getElementById("drawerPanel");
+const resizer = document.getElementById("resizer");
+const toastSuccess = document.getElementById("toastSuccess");
+const idCountTip = document.getElementById("idCountTip");
+const detailWrap = document.getElementById("detailWrap");
+const currentEditId = document.getElementById("currentEditId");
+const formEl = document.querySelector(".drawer-form");
+
+// 弹窗宽度配置
+const MIN_WIDTH = 400;
+const MAX_WIDTH = 700;
+const DEFAULT_WIDTH = 480;
+let panelWidth = Number(localStorage.getItem("drawerWidth")) || DEFAULT_WIDTH;
+drawerPanel.style.width = panelWidth + "px";
+
+// 拖拽逻辑
+let isDragging = false;
+resizer.addEventListener("mousedown", (e) => {
+  isDragging = true;
+  document.body.style.cursor = "ew-resize";
+  document.body.style.userSelect = "none";
+});
+document.addEventListener("mousemove", (e) => {
+  if (!isDragging) return;
+  const winWidth = window.innerWidth;
+  const newW = winWidth - e.clientX;
+  panelWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, newW));
+  drawerPanel.style.width = panelWidth + "px";
+});
+document.addEventListener("mouseup", () => {
+  if (isDragging) {
+    isDragging = false;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    localStorage.setItem("drawerWidth", panelWidth);
+  }
+});
+
+// 标记当前布局模式 true=榜单三列同行 false=新增两列分行
+let isThreeLayout = false;
+// 切换表单布局
+function setThreeMode(enable) {
+  isThreeLayout = enable;
+  if (enable) {
+    formEl.classList.remove("mode-normal");
+    formEl.classList.add("mode-three");
+  } else {
+    formEl.classList.remove("mode-three");
+    formEl.classList.add("mode-normal");
+  }
+}
+
+// 根据布局获取对应分数输入框值
+function getScoreValues(){
+  if(isThreeLayout){
+    return {
+      app: Number(document.getElementById("scoreAppThree").value) || 3,
+      fea: Number(document.getElementById("scoreFeaThree").value) || 3,
+      ser: Number(document.getElementById("scoreSerThree").value) || 3
+    }
+  }else{
+    return {
+      app: Number(document.getElementById("scoreAppNormal").value) || 3,
+      fea: Number(document.getElementById("scoreFeaNormal").value) || 3,
+      ser: Number(document.getElementById("scoreSerNormal").value) || 3
+    }
+  }
+}
+// 填充分数到对应布局输入框
+function setScoreValues(app, fea, ser){
+  if(isThreeLayout){
+    document.getElementById("scoreAppThree").value = app;
+    document.getElementById("scoreFeaThree").value = fea;
+    document.getElementById("scoreSerThree").value = ser;
+  }else{
+    document.getElementById("scoreAppNormal").value = app;
+    document.getElementById("scoreFeaNormal").value = fea;
+    document.getElementById("scoreSerNormal").value = ser;
+  }
+}
+
+// 全局缓存当前ID均值
+let currentAvgData = {avgApp:3, avgFea:3, avgSer:3};
+
+// 切换页签
+function switchTab(tabName){
+  activeTab = tabName;
+  document.querySelectorAll(".tab-item").forEach(item=>{
+    item.classList.toggle("active", item.dataset.tab === tabName);
+  })
+  document.getElementById("tabUnfinish").classList.toggle("active", tabName === "unfinish");
+  document.getElementById("tabFinish").classList.toggle("active", tabName === "finish");
+}
+
+// 轻提示
+function showToast(msg) {
+  toastSuccess.innerText = msg;
+  toastSuccess.classList.add("show");
+  setTimeout(()=>toastSuccess.classList.remove("show"), 1500);
+}
+
+// 抽屉开关
+function openDrawer() {
+  drawerMask.classList.add("open");
+  drawerWrap.classList.add("open");
+}
+function closeDrawer() {
+  drawerMask.classList.remove("open");
+  drawerWrap.classList.remove("open");
+}
+
+// 本地存储
+function loadLocalData() {
+  const cache = localStorage.getItem(STORAGE_KEY);
+  if (cache) {
+    try {
+      appData = JSON.parse(cache);
+    } catch (e) {
+      appData = { list: [] };
+    }
+  }
+}
+function saveToLocal() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+}
+
+// 分值基础限制 1-5
+function clampScoreBase(val) {
+  return Math.min(Math.max(Number(val) || 3, 1), 5);
+}
+// 价格强制限制 3~6
+function clampPrice(val) {
+  return Math.min(Math.max(Number(val) || 3, 3), 6);
+}
+
+// 获取±20%区间
+function getScoreRange(baseAvg) {
+  const min = Number((baseAvg * 0.8).toFixed(2));
+  const max = Number((baseAvg * 1.2).toFixed(2));
+  return {min, max};
+}
+// 校验分数是否在区间内
+function checkScoreInRange(val, baseAvg) {
+  const {min, max} = getScoreRange(baseAvg);
+  return val >= min && val <= max;
+}
+
+// 校验：空白新增弹窗下，同分类ID是否已存在
+function isIdExistSameStatus(id, status) {
+  return appData.list.some(item => item.id === id && item.status === status);
+}
+
+// 控制基础5行显示隐藏
+function setBaseFieldVisible(visible){
+  const rows = ["row-id","row-name","row-status","row-model","row-price"];
+  rows.forEach(id=>{
+    const el = document.getElementById(id);
+    el.style.display = visible ? "flex" : "none";
+  });
+}
+
+// 清空表单
+function clearForm() {
+  document.getElementById("editUid").value = "";
+  document.getElementById("itemId").value = "";
+  document.getElementById("itemName").value = "";
+  document.getElementById("statusSel").value = activeTab;
+  document.getElementById("modelSel").value = "";
+  document.getElementById("priceInput").value = "3";
+  setScoreValues(3,3,3);
+  document.getElementById("noteText").value = "";
+
+  // 全部解除只读/禁用
+  document.getElementById("itemId").classList.remove("readonly-lock");
+  document.getElementById("itemName").classList.remove("readonly-lock");
+  document.getElementById("statusSel").classList.remove("disabled-lock");
+  document.getElementById("modelSel").classList.remove("disabled-lock");
+  document.getElementById("priceInput").classList.remove("readonly-lock");
+  document.getElementById("statusSel").disabled = false;
+  document.getElementById("modelSel").disabled = false;
+
+  idCountTip.style.display = "none";
+  detailWrap.innerHTML = "";
+  currentAvgData = {avgApp:3, avgFea:3, avgSer:3};
+}
+
+// 顶部新增空白抽屉：完整显示全部字段、两列分行
+function openEmptyDrawer() {
+  currentEditId.value = "";
+  clearForm();
+  setBaseFieldVisible(true);
+  setThreeMode(false);
+  openDrawer();
+}
+
+// 计算同ID均值与条数
+function calcIdAvg(targetId, status) {
+  const sameIdList = appData.list.filter(d => d.id === targetId && d.status === status);
+  const count = sameIdList.length;
+  if (count === 0) return {avgApp:3, avgFea:3, avgSer:3, totalAvg:0, count:0, list:sameIdList};
+
+  let arrApp = sameIdList.map(d => d.appearance);
+  let arrFea = sameIdList.map(d => d.feature);
+  let arrSer = sameIdList.map(d => d.service);
+
+  if (count > 5) {
+    arrApp = arrApp.sort((a,b)=>a-b).slice(1, -1);
+    arrFea = arrFea.sort((a,b)=>a-b).slice(1, -1);
+    arrSer = arrSer.sort((a,b)=>a-b).slice(1, -1);
+  }
+
+  const avgApp = Number((arrApp.reduce((s,v)=>s+v,0) / arrApp.length).toFixed(2));
+  const avgFea = Number((arrFea.reduce((s,v)=>s+v,0) / arrFea.length).toFixed(2));
+  const avgSer = Number((arrSer.reduce((s,v)=>s+v,0) / arrSer.length).toFixed(2));
+  const totalAvg = Number((avgApp + avgFea + avgSer).toFixed(2));
+  return {avgApp, avgFea, avgSer, totalAvg, count, list:sameIdList};
+}
+
+// 点击榜单ID行：隐藏基础5行、三列同行
+function openIdDrawer(id) {
+  currentEditId.value = id;
+  clearForm();
+  setBaseFieldVisible(false);
+  setThreeMode(true);
+  const allSame = appData.list.filter(d=>d.id === id && d.status === activeTab);
+  const baseItem = allSame[0];
+  if(!baseItem) return;
+
+  const info = calcIdAvg(id, activeTab);
+  currentAvgData = {
+    avgApp: info.avgApp,
+    avgFea: info.avgFea,
+    avgSer: info.avgSer
+  };
+  document.getElementById("itemId").value = baseItem.id;
+  document.getElementById("itemName").value = baseItem.name;
+  document.getElementById("statusSel").value = baseItem.status;
+  document.getElementById("modelSel").value = baseItem.model;
+  document.getElementById("priceInput").value = baseItem.price;
+
+  document.getElementById("itemId").classList.add("readonly-lock");
+  document.getElementById("itemName").classList.add("readonly-lock");
+  document.getElementById("statusSel").classList.add("disabled-lock");
+  document.getElementById("modelSel").classList.add("disabled-lock");
+  document.getElementById("priceInput").classList.add("readonly-lock");
+  document.getElementById("statusSel").disabled = true;
+  document.getElementById("modelSel").disabled = true;
+
+  setScoreValues(info.avgApp, info.avgFea, info.avgSer);
+
+  idCountTip.style.display = "block";
+  const rA = getScoreRange(info.avgApp);
+  const rF = getScoreRange(info.avgFea);
+  const rS = getScoreRange(info.avgSer);
+  idCountTip.innerText = `当前ID：${id} | 该分类下共 ${info.count} 条测评记录 | 分数浮动区间：颜值${rA.min}~${rA.max}，特色${rF.min}~${rF.max}，服务${rS.min}~${rS.max}`;
+  renderDetailTable(info.list);
+  openDrawer();
+}
+
+// 点击明细行：隐藏基础5行、三列同行
+function fillDetailEdit(uid) {
+  const item = appData.list.find(x => x.uid === uid);
+  if (!item) return;
+  clearForm();
+  setBaseFieldVisible(false);
+  setThreeMode(true);
+  document.getElementById("editUid").value = item.uid;
+  document.getElementById("itemId").value = item.id;
+  document.getElementById("itemName").value = item.name;
+  document.getElementById("statusSel").value = item.status;
+  document.getElementById("modelSel").value = item.model;
+  document.getElementById("priceInput").value = item.price;
+  setScoreValues(item.appearance, item.feature, item.service);
+  document.getElementById("noteText").value = item.note;
+
+  document.getElementById("itemId").classList.add("readonly-lock");
+  document.getElementById("itemName").classList.add("readonly-lock");
+  document.getElementById("statusSel").classList.add("disabled-lock");
+  document.getElementById("modelSel").classList.add("disabled-lock");
+  document.getElementById("priceInput").classList.add("readonly-lock");
+  document.getElementById("statusSel").disabled = true;
+  document.getElementById("modelSel").disabled = true;
+}
+
+// 保存逻辑（修复分数校验、取值错乱）
+function saveItem() {
+  const editUid = document.getElementById("editUid").value.trim();
+  const id = document.getElementById("itemId").value.trim();
+  const name = document.getElementById("itemName").value.trim();
+  const status = document.getElementById("statusSel").value;
+  const model = document.getElementById("modelSel").value;
+  const priceRaw = document.getElementById("priceInput").value;
+  const note = document.getElementById("noteText").value.trim();
+
+  // 基础必填校验
+  if (!id) return showToast("请填写ID");
+  if (!name) return showToast("请填写名称");
+  if (!model) return showToast("请选择型号");
+  if (!note) return showToast("备注不能为空");
+
+  // 空白新增弹窗：同分类ID不可重复
+  if(!editUid && !currentEditId.value){
+    if(isIdExistSameStatus(id, status)){
+      return showToast(`【${status==='unfinish'?'未完成':'已完成'}】分类下已存在ID：${id}，不能重复新增`);
+    }
+  }
+
+  // 取值
+  const score = getScoreValues();
+  const appearance = clampScoreBase(score.app);
+  const feature = clampScoreBase(score.fea);
+  const service = clampScoreBase(score.ser);
+  const price = clampPrice(priceRaw);
+  if(price <3 || price>6) return showToast("价格必须为3~6之间数字");
+
+  // 核心修复：榜单弹窗新增同ID，强制校验±20%区间
+  if(!editUid && currentEditId.value){
+    const rA = getScoreRange(currentAvgData.avgApp);
+    const rF = getScoreRange(currentAvgData.avgFea);
+    const rS = getScoreRange(currentAvgData.avgSer);
+    if(!checkScoreInRange(appearance, currentAvgData.avgApp)){
+      return showToast(`颜值超出区间：必须${rA.min} ~ ${rA.max}`);
+    }
+    if(!checkScoreInRange(feature, currentAvgData.avgFea)){
+      return showToast(`特色超出区间：必须${rF.min} ~ ${rF.max}`);
+    }
+    if(!checkScoreInRange(service, currentAvgData.avgSer)){
+      return showToast(`服务超出区间：必须${rS.min} ~ ${rS.max}`);
+    }
+  }
+
+  const total = appearance + feature + service;
+
+  if (editUid) {
+    // 编辑现有明细
+    const target = appData.list.find(x => x.uid === editUid);
+    target.id = id;
+    target.name = name;
+    target.status = status;
+    target.model = model;
+    target.price = price;
+    target.appearance = appearance;
+    target.feature = feature;
+    target.service = service;
+    target.note = note;
+    target.total = total;
+    saveToLocal();
+    renderTwoTable();
+    const info = calcIdAvg(id, activeTab);
+    renderDetailTable(info.list);
+    clearForm();
+    if(currentEditId.value){
+      openIdDrawer(currentEditId.value);
+    }
+    showToast("编辑保存成功");
+  } else {
+    // 新增记录
+    const newItem = {
+      uid: Date.now().toString(),
+      id, name, status, model, price, note,
+      appearance, feature, service, total
+    };
+    appData.list.push(newItem);
+    saveToLocal();
+    renderTwoTable();
+    if(currentEditId.value){
+      // 榜单内新增，保持三列同行
+      const info = calcIdAvg(id, activeTab);
+      renderDetailTable(info.list);
+      clearForm();
+      currentEditId.value = id;
+      openIdDrawer(id);
+      showToast("新增保存成功");
+    }else{
+      // 顶部全新新增，恢复两列分行
+      clearForm();
+      setBaseFieldVisible(true);
+      setThreeMode(false);
+      showToast("新增保存成功");
+    }
+  }
+}
+
+// 渲染底部明细表格
+function renderDetailTable(list) {
+  if(list.length === 0){
+    detailWrap.innerHTML = "<p style='color:#888'>暂无明细记录</p>";
+    return;
+  }
+  let html = `<table class="detail-table" border="1" cellpadding="6" cellspacing="0" width="100%">
+    <tr>
+      <th>ID</th>
+      <th>本条排名</th>
+      <th>名称</th>
+      <th>总分</th>
+      <th>型号</th>
+      <th>价格</th>
+      <th>颜值</th>
+      <th>特色</th>
+      <th>服务</th>
+      <th>备注</th>
+    </tr>`;
+  const sorted = [...list].sort((a,b)=>b.total - a.total);
+  sorted.forEach((item, idx)=>{
+    html += `<tr onclick="fillDetailEdit('${item.uid}')">
+      <td>${item.id}</td>
+      <td>${idx+1}</td>
+      <td>${item.name}</td>
+      <td>${item.total}</td>
+      <td>${item.model}</td>
+      <td>${item.price}</td>
+      <td>${item.appearance}</td>
+      <td>${item.feature}</td>
+      <td>${item.service}</td>
+      <td>${item.note || "-"}</td>
+    </tr>`;
+  });
+  html += `</table>`;
+  detailWrap.innerHTML = html;
+}
+
+// 渲染汇总榜单
+function renderTwoTable() {
+  const headTpl = `
+    <th>ID</th>
+    <th>综合排名</th>
+    <th>名称</th>
+    <th>平均总分</th>
+    <th>型号</th>
+    <th>价格</th>
+    <th>平均颜值</th>
+    <th>平均特色</th>
+    <th>平均服务</th>
+    <th>备注</th>
+  `;
+
+  function getGroupList(status, filterModel){
+    const all = appData.list.filter(d => d.status === status);
+    const ids = [...new Set(all.map(d=>d.id))];
+    const groupArr = [];
+    ids.forEach(id=>{
+      const group = calcIdAvg(id, status);
+      const groupItems = all.filter(d=>d.id === id);
+      const mainModel = groupItems[0].model;
+      const avgPrice = Number((groupItems.reduce((s,v)=>s+v.price,0)/groupItems.length).toFixed(2));
+      if(filterModel && mainModel !== filterModel) return;
+      groupArr.push({
+        id,
+        name:groupItems[0].name,
+        count:group.count,
+        avgTotal:group.totalAvg,
+        avgApp:group.avgApp,
+        avgFea:group.avgFea,
+        avgSer:group.avgSer,
+        avgPrice,
+        model:mainModel,
+        note:groupItems[0].note
+      });
+    });
+    return groupArr.sort((a, b) => b.avgTotal - a.avgTotal);
+  }
+
+  const unfinishGroup = getGroupList("unfinish", filterUnfinishModel);
+  const finishGroup = getGroupList("finish", filterFinishModel);
+
+  document.getElementById("unfinishCount").textContent = `(共${unfinishGroup.length}个ID)`;
+  document.getElementById("finishCount").textContent = `(共${finishGroup.length}个ID)`;
+
+  document.getElementById("headUnfinish").innerHTML = `<tr>${headTpl}</tr>`;
+  let ub = document.getElementById("bodyUnfinish");
+  ub.innerHTML = "";
+  unfinishGroup.forEach((item, idx) => {
+    ub.innerHTML += `<tr onclick="openIdDrawer('${item.id}')">
+      <td>${item.id}</td>
+      <td>${idx+1}</td>
+      <td>${item.name}</td>
+      <td style="font-weight:600;color:#2563eb">${item.avgTotal}</td>
+      <td>${item.model}</td>
+      <td>${item.avgPrice}</td>
+      <td>${item.avgApp}</td>
+      <td>${item.avgFea}</td>
+      <td>${item.avgSer}</td>
+      <td>${item.note || "-"}</td>
+    </tr>`;
+  });
+
+  document.getElementById("headFinish").innerHTML = `<tr>${headTpl}</tr>`;
+  let fb = document.getElementById("bodyFinish");
+  fb.innerHTML = "";
+  finishGroup.forEach((item, idx) => {
+    fb.innerHTML += `<tr onclick="openIdDrawer('${item.id}')">
+      <td>${item.id}</td>
+      <td>${idx+1}</td>
+      <td>${item.name}</td>
+      <td style="font-weight:600;color:#059669">${item.avgTotal}</td>
+      <td>${item.model}</td>
+      <td>${item.avgPrice}</td>
+      <td>${item.avgApp}</td>
+      <td>${item.avgFea}</td>
+      <td>${item.avgSer}</td>
+      <td>${item.note || "-"}</td>
+    </tr>`;
+  });
+}
+
+// 导出
+function exportTXT() {
+  let txt = "ID,分类,名称,总分,颜值,特色,服务,价格,型号,备注\n";
+  appData.list.forEach(it => {
+    txt += `${it.id},${it.status === "unfinish" ? "未完成" : "已完成"},${it.name},${it.total},${it.appearance},${it.feature},${it.service},${it.price},${it.model},${(it.note || "").replace(/,/g, "，")}\n`;
+  });
+  downloadFile(txt, "测评明细备份.txt", "text/plain;charset=utf-8");
+}
+
+function downloadFile(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+// 导入
+document.getElementById("fileUpload").addEventListener("change", function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.readAsText(file, "UTF-8");
+  reader.onload = function (ev) {
+    const text = ev.target.result;
+    const lines = text.replace(/\r/g,"").split("\n").filter(line => line.trim() !== "");
+    let count = 0;
+    let skipEmptyModel = 0;
+    let skipRepeatId = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const row = lines[i].split(",");
+      if (row.length < 10) continue;
+      const id = row[0].trim();
+      const cat = row[1].trim();
+      const name = row[2].trim();
+      const appearance = clampScoreBase(row[4]);
+      const feature = clampScoreBase(row[5]);
+      const service = clampScoreBase(row[6]);
+      const price = clampPrice(row[7]);
+      const model = row[8].trim();
+      const note = row[9] ? row[9].trim() : "";
+      const status = cat === "已完成" ? "finish" : "unfinish";
+      if (!model) { skipEmptyModel++; continue; }
+      if(isIdExistSameStatus(id, status)){
+        skipRepeatId++;
+        continue;
+      }
+      appData.list.push({
+        uid: Date.now() + "" + i,
+        id, name, status, model, price, note,
+        appearance, feature, service, total: appearance+feature+service
+      });
+      count++;
+    }
+    saveToLocal();
+    renderTwoTable();
+    showToast(`导入成功新增${count}条，跳过无型号${skipEmptyModel}条，重复ID${skipRepeatId}条`);
+    this.value = "";
+  }
+  reader.onerror = function(){
+    showToast("文件读取失败");
+    this.value = "";
+  }
+});
+
+// 筛选绑定
+document.getElementById("filterUnfinishModel").addEventListener("change", ()=>renderTwoTable());
+document.getElementById("filterFinishModel").addEventListener("change", ()=>renderTwoTable());
+
+// 初始化
+loadLocalData();
+renderTwoTable();
+</script>
+</body>
+</html>
